@@ -24,6 +24,15 @@
     "port": $SQLPORT,
     "connectionLimit": 15
   },
+  "firebase": {
+    "apiKey": "$FB_API_KEY",
+    "authDomain": "$FB_AUTH_DOMAIN",
+    "databaseURL": "$FB_DB_URL",
+    "projectId": "$FB_PROJECT_ID",
+    "storageBucket": "$FB_STORAGE_BUCKET",
+    "messagingSenderId": "$FB_SENDER_ID",
+    "appId": "$FB_APP_ID"
+  },
   "admins": {
     "steam_ids": "$ADMINS"
   },

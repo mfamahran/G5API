@@ -1,0 +1,24 @@
+version: "3.7"
+
+services:
+  redis:
+    image: redis:6
+    command: redis-server --requirepass super_secure
+    container_name: redis
+    restart: always
+    ports:
+      - 6379:6379
+
+  get5db:
+    image: yobasystems/alpine-mariadb
+    container_name: get5db
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=get5dev
+      - MYSQL_USER=get5
+      - MYSQL_PASSWORD=password
+      - MYSQL_CHARSET=utf8mb4
+      - MYSQL_COLLATION=utf8mb4_general_ci
+    ports:
+      - 3306:3306

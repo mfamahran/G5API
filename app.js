@@ -24,6 +24,7 @@ import matchesRouter from "./src/routes/matches/matches.js";
 import matchServerRouter from "./src/routes/matches/matchserver.js";
 import playerstatsRouter from "./src/routes/playerstats/playerstats.js";
 import playerstatsextraRouter from "./src/routes/playerstats/extrastats.js";
+import queueRouter from "./src/routes/queue.js";
 import seasonsRouter from "./src/routes/seasons.js";
 import serversRouter from "./src/routes/servers.js";
 import teamsRouter from "./src/routes/teams.js";
@@ -150,6 +151,7 @@ app.use("/maps", mapListRouter);
 app.use("/v2", v2Router);
 app.use("/v2/demo", v2DemoRouter);
 app.use("/v2/backup", v2BackupRouter);
+app.use("/queue", queueRouter);
 // END ROUTES
 
 // Steam API Calls.

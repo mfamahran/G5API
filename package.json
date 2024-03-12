@@ -81,6 +81,7 @@
     "express-bearer-token": "^2.4.0",
     "express-rate-limit": "^6.7.0",
     "express-session": "^1.17.0",
+    "firebase": "^10.8.1",
     "helmet": "^6.0.0",
     "http-errors": "~1.7.3",
     "jszip": "^3.7.0",

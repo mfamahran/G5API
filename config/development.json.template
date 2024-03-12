@@ -24,6 +24,15 @@
     "port": 3306,
     "connectionLimit": 15
   },
+  "firebase": {
+    "apiKey": "api_key_here",
+    "authDomain": "auth_domain_here",
+    "databaseURL": "db_url",
+    "projectId": "project_id",
+    "storageBucket": "storage_bucket",
+    "messagingSenderId": "messaging_sender_id",
+    "appId": "app_id"
+  },
   "admins": {
     "steam_ids": "admins,go,here"
   },
