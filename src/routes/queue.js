@@ -1,9 +1,11 @@
 import { Router } from "express";
-import {db} from "../services/firebase.js";
+import {db, fdb} from "../services/firebase.js";
 import { ref as dataRef, push, onValue, set } from "firebase/database";
 import Utils from "../utility/utils.js";
+import {fork} from 'child_process';
 
 const router = Router();
+const child = fork('./src/utility/child.js');
 /* Swagger shared definitions */
 
 /**
@@ -74,7 +76,7 @@ const router = Router();
  */
 router.get("/", async (req, res) => {
     try {
-      const queueRef = dataRef(db, "queue");
+      const queueRef = dataRef(fdb, "queue");
       res.set({
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
@@ -83,30 +85,43 @@ router.get("/", async (req, res) => {
       });
       res.flushHeaders();
       let queueString = `event: queue\ndata: ${JSON.stringify([])}\n\n`;
+      let gQueue = {};
       onValue(
         queueRef,
         snapshot => {
           const queue = snapshot.val() || {};
-          // Check if the player is already in the queue
-          let players = Object.values(queue);
-          players = players.map((v) => Object.assign({}, v));
-          queueString = `event: queue\ndata: ${JSON.stringify(players)}\n\n`;
+          if (queue.players === undefined) {
+            queue.players = [];
+          }
+          gQueue = queue;
+          queueString = `event: queue\ndata: ${JSON.stringify(queue)}\n\n`;
           res.write(queueString);
         },
         {
           onlyOnce: false
         }
       );
-      req.on("close", () => {
-            res.end();
-        });
-        
-        req.on("disconnect", () => {
-        res.end();
-        });
-      
 
+      child.on("message", async (msg) => {
+        if (msg.action === "MATCH_FOUND") {
+          console.log("Match found, updating queue");
+          gQueue.matchFound = true;
+          gQueue.team1Captain = msg.captains[0];
+          gQueue.team2Captain = msg.captains[1];
+          gQueue.playersMatch = msg.playersMatch;
+          gQueue.players = [];
+          console.log(gQueue);
+          await db.updateQueue(gQueue);
+        } 
+      });
       
+      req.on("close", () => {
+        res.end();
+      });
+        
+      req.on("disconnect", () => {
+        res.end();
+      });
     } catch (err) {
       console.error(err);
       res.status(500).json({ message: err.toString() });
@@ -115,37 +130,9 @@ router.get("/", async (req, res) => {
 
 router.post("/join", Utils.ensureAuthenticated, async (req, res, next) => {
     try {
-        const queueRef = dataRef(db, "queue");
-        onValue(
-            queueRef,
-            snapshot => {
-              const queue = snapshot.val() || {};
-              let inQueue = false;
-              // Check if the player is already in the queue
-              Object.values(queue).forEach(queuedPlayer => {
-                if (queuedPlayer.steam_id === req.user.steam_id) {
-                  inQueue = true;
-                }
-              });
-    
-              if (!inQueue) {
-                // Player not in queue, add them
-                const date = new Date().toISOString();
-                push(queueRef, {
-                  date: date,
-                  steam_id: req.user.steam_id,
-                  username: req.user.name,
-                  avatar: req.user.medium_image
-                });
-              } else {
-                // Handle the case where player is already in the queue
-                res.status(405).json({ message: "Player already in queue" });
-              }
-            },
-            {
-              onlyOnce: true // This ensures the listener is removed after it receives a value
-            }
-        );
+        await db.addToQueue(req.user);
+        const player = req.user;
+        child.send({ action: 'JOIN_QUEUE', player });
         res.status(200).json({ message: "You have joined the queue" });
     } catch (err) {
         console.error(err);
@@ -153,70 +140,45 @@ router.post("/join", Utils.ensureAuthenticated, async (req, res, next) => {
     }
 });
 
-router.post("/join", Utils.ensureAuthenticated, async (req, res, next) => {
+router.post("/leave", Utils.ensureAuthenticated, async (req, res, next) => {
+    const player = req.user;
     try {
-        const queueRef = dataRef(db, "queue");
-        onValue(
-            queueRef,
-            snapshot => {
-              const queue = snapshot.val() || {};
-              let inQueue = false;
-              // Check if the player is already in the queue
-              Object.values(queue).forEach(queuedPlayer => {
-                if (queuedPlayer.steam_id === req.user.steam_id) {
-                  inQueue = true;
-                }
-              });
-    
-              if (!inQueue) {
-                // Player not in queue, add them
-                const date = new Date().toISOString();
-                push(queueRef, {
-                  date: date,
-                  steam_id: req.user.steam_id,
-                  username: req.user.name,
-                  avatar: req.user.medium_image
-                });
-              } else {
-                // Handle the case where player is already in the queue
-                res.status(405).json({ message: "Player already in queue" });
-              }
-            },
-            {
-              onlyOnce: true // This ensures the listener is removed after it receives a value
-            }
-        );
-        res.status(200).json({ message: "You have joined the queue" });
+        db.removeFromQueue(req.user);
+        child.send({ action: 'LEAVE_QUEUE', player });
+        res.status(200).json({ message: "You have left the queue" });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: err.toString() });
     }
-});router.post("/leave", Utils.ensureAuthenticated, async (req, res, next) => {
+});
+
+router.post("/pick", Utils.ensureAuthenticated, async (req, res, next) => {
     try {
-        const queueRef = dataRef(db, "queue");
-        onValue(
-            queueRef,
-            snapshot => {
-              const queue = snapshot.val();
-              let updatedQueue = {};
-    
-              // Filter out the logged-in player
-              Object.keys(queue).forEach(key => {
-                if (queue[key].steam_id !== req.user.steam_id) {
-                  updatedQueue[key] = queue[key];
-                }
-              });
-    
-              // Update the queue in Firebase
-              set(queueRef, updatedQueue);
-    
-              // Update local state if necessary
-            },
-            {
-              onlyOnce: true // Ensure this is only run once and not left on as a listener
-            }
-          );
-        res.status(200).json({ message: "You have left the queue" });
+        let queue = req.body;
+        queue.team1 = queue.team1.players;
+        queue.team2 = queue.team2.players;
+        let team1 = req.body.team1.players;
+        let team2 = req.body.team2.players;
+        if (queue.team1.length === 1 && queue.team2.length === 0) {
+          queue.turn = 'team2';
+        } else if (queue.team1.length === 1 && queue.team2.length === 1) {
+          queue.turn = 'team1';
+        } else if (queue.team1.length === 2 && queue.team2.length === 1) {
+          queue.turn = 'team1';
+        } else if (queue.team1.length === 3 && queue.team2.length === 1) {
+          queue.turn = 'team2';
+        } else if (queue.team1.length === 3 && queue.team2.length === 2) {
+          queue.turn = 'team2';
+        } else if (queue.team1.length === 3 && queue.team2.length === 3) {
+          queue.turn = 'team1';
+        } else if (queue.team1.length === 4 && queue.team2.length === 3) {
+          queue.turn = 'team2';
+        } else if (queue.team1.length === 4 && queue.team2.length === 4) {
+          quque.turn = 'done';
+        }
+        await db.updateQueue(queue);
+        child.send({ action: 'PICK', team1: team1, team2: team2 });
+        res.status(200).json({ message: "Team picked" });
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: err.toString() });

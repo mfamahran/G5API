@@ -69,6 +69,7 @@
     "@node-steam/id": "^1.2.0",
     "aes-js": "^3.1.2",
     "bcrypt": "^5.1.0",
+    "child_process": "^1.0.2",
     "compare-versions": "^6.0.0-rc.2",
     "config": "^3.3.7",
     "connect-redis": "^6.1.3",
