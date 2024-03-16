@@ -1,6 +1,6 @@
 FROM node:16-alpine
 
-RUN apk add gettext python3 build-base
+RUN apk add gettext python3 build-base cmake
 
 EXPOSE 3301
 # clone and move into Get5API folder
