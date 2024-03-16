@@ -1,8 +1,11 @@
 import { Router } from "express";
 import {db, fdb} from "../services/firebase.js";
+import {db as db2} from "../services/db.js";
+import GameServer from "../utility/serverrcon.js";
 import { ref as dataRef, push, onValue, set } from "firebase/database";
 import Utils from "../utility/utils.js";
 import {fork} from 'child_process';
+import { generate } from "randomstring";
 
 const router = Router();
 const child = fork('./src/utility/child.js');
@@ -90,6 +93,10 @@ router.get("/", async (req, res) => {
         queueRef,
         snapshot => {
           const queue = snapshot.val() || {};
+          // check if queue is empty
+          if (Object.keys(queue).length === 0 && queue.constructor === Object) {
+            child.send({ action: 'RESET_QUEUE'});
+          }
           if (queue.players === undefined) {
             queue.players = [];
           }
@@ -174,7 +181,12 @@ router.post("/pick", Utils.ensureAuthenticated, async (req, res, next) => {
         } else if (queue.team1.length === 4 && queue.team2.length === 3) {
           queue.turn = 'team2';
         } else if (queue.team1.length === 4 && queue.team2.length === 4) {
-          quque.turn = 'done';
+          queue.turn = 'map_pick_team1';
+          const team1ID = createTeam(team1, queue.team1Captain);
+          const team2ID = createTeam(team2, queue.team2Captain);
+          queue.team1id = team1ID;
+          queue.team2id = team2ID;
+          queue.maps = ['de_inferno', 'de_mirage', 'de_nuke', 'de_overpass', 'de_vertigo', 'de_anubis', 'de_ancient'];
         }
         await db.updateQueue(queue);
         child.send({ action: 'PICK', team1: team1, team2: team2 });
@@ -184,5 +196,159 @@ router.post("/pick", Utils.ensureAuthenticated, async (req, res, next) => {
         res.status(500).json({ message: err.toString() });
     }
 });
+
+router.post("/ban", Utils.ensureAuthenticated, async (req, res, next) => {
+  try {
+    let queue = req.body;
+    if (queue.maps.length > 1) {
+      if (queue.turn === 'map_pick_team1') {
+        queue.turn = 'map_pick_team2';
+      } else if (queue.turn === 'map_pick_team2') {
+        queue.turn = 'map_pick_team1';
+      }
+    } else if (queue.maps.length === 1) {
+      queue.turn = 'done';
+      const matchId = await createMatch(queue);
+      queue.matchId = matchId;
+      await db2.updateQueue(queue);
+      res.status(200).json({ message: "Match Ready", matchId: matchId });
+    }
+    await db2.updateQueue(queue);
+    res.status(200).json({ message: "Map banned", matchId: null });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.toString() });
+  }
+});
+
+const createTeam = async (team, captain) => {
+  let players = team;
+  players.push(captain);
+  let teamID = null;
+  let newTeam = [
+    {
+      user_id: captain.id,
+      name: 'team_' + captain.name,
+      flag: 'EG',
+      logo: null,
+      tag: 'TEM' + captain.name,
+      public_team: false,
+    },
+  ];
+  let sql =
+    "INSERT INTO team (user_id, name, flag, logo, tag, public_team) VALUES ?";
+  
+  const insertTeam = await db2.query(sql, [
+    newTeam.map((item) => [
+      item.user_id,
+      item.name,
+      item.flag,
+      item.logo,
+      item.tag,
+      item.public_team,
+    ]),
+  ]);
+  teamID = insertTeam.insertId;
+
+  sql =
+      "INSERT INTO team_auth_names (team_id, auth, name, captain, coach) VALUES (?, ?, ?, ?, ?)";
+
+  for (const player of players) {
+    await db2.query(sql, [
+      teamID,
+      player.steam_id,
+      player.name,
+      player.name === captain.name ? 1 : 0,
+      0,
+    ]);
+  }
+
+  return teamID;
+}
+
+const createMatch = async (queue) => {
+  let serverSql =
+      "SELECT in_use, user_id, public_server FROM game_server WHERE in_use = ?";
+    const serverInUse = await db2.query(serverSql, [0]);
+    let teamNameSql = "SELECT name FROM team WHERE id = ?";
+    let teamOneName = await db2.query(teamNameSql, [req.body[0].team1_id]);
+    let teamTwoName = await db2.query(teamNameSql, [req.body[0].team2_id]);
+    let apiKey = generate({
+      length: 24,
+      capitalization: "uppercase"
+    });
+    let skipVeto = 1;
+    let insertMatch;
+    let insertSet = {
+      user_id: queue.team1Captain.id,
+      server_id: serverInUse[0].id,
+      team1_id: queue.team1id,
+      team2_id: queue.team2id,
+      season_id: null,
+      start_time: new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace("T", " "),
+      max_maps: 1,
+      title: teamOneName[0].name + ' vs. ' + teamTwoName[0].name,
+      skip_veto: skipVeto,
+      veto_first: 'team1',
+      veto_mappool: queue.maps[0],
+      side_type: 'always_knife',
+      plugin_version: req.body[0].plugin_version,
+      private_match: 0,
+      enforce_teams: 1,
+      api_key: apiKey,
+      winner: null,
+      team1_string: teamOneName[0].name == null ? null : teamOneName[0].name,
+      team2_string: teamTwoName[0].name == null ? null : teamTwoName[0].name,
+      is_pug: 1,
+      min_player_ready: 5,
+      players_per_team: 5,
+      min_spectators_to_ready: 0,
+      map_sides: 'knife',
+      wingman: false 
+    };
+
+    let sql = "INSERT INTO `match` SET ?";
+    insertSet = await db2.buildUpdateStatement(insertSet);
+    insertMatch = await db2.query(sql, [insertSet]);
+
+    const newServer = new GameServer(
+      serverInUse[0].ip_string,
+      serverInUse[0].port,
+      serverInUse[0].rcon_password
+    );
+
+    if (
+      (await newServer.isServerAlive()) &&
+      (await newServer.isGet5Available())
+    ) {
+      sql = "UPDATE game_server SET in_use = 1 WHERE id = ?";
+      await db2.query(sql, [req.body[0].server_id]);
+
+      sql = "UPDATE `match` SET plugin_version = ? WHERE id = ?";
+      let get5Version = await newServer.getGet5Version();
+      await db2.query(sql, [get5Version, insertMatch.insertId]);
+      if (
+        !(await newServer.prepareGet5Match(
+          config.get("server.apiURL") +
+            "/matches/" +
+            insertMatch.insertId +
+            "/config",
+          apiKey
+        ))
+      ) {
+        // Delete the match as it does not belong in the database.
+        sql = "DELETE FROM `match` WHERE id = ?";
+        await db2.query(sql, [insertMatch.insertId]);
+
+        sql = "UPDATE game_server SET in_use = 0 WHERE id = ?";
+        await db2.query(sql, [serverInUse[0].id]);
+        throw "Please check server logs, as something was not set properly. You may cancel the match and server status is not updated.";
+      }
+      return insertMatch.insertId;
+    }
+}
 
 export default router;
