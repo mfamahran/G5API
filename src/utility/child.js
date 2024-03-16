@@ -5,10 +5,10 @@ let team2 = [];
 
 
 const startMatchIfPossible = (message) => {
-  if (playerQueue.length >= 8) {
+  if (playerQueue.length >= 10) {
     // Simulate match creation logic
     console.log("MATCH FOUND");
-    const playersForMatch = playerQueue.slice(0, 8);
+    const playersForMatch = playerQueue.slice(0, 10);
     // Pick captains randomly
     const captains = playersForMatch
       .sort(() => Math.random() - 0.5)
