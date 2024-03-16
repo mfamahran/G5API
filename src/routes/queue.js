@@ -210,7 +210,7 @@ router.post("/ban", Utils.ensureAuthenticated, async (req, res, next) => {
       queue.turn = 'done';
       const matchId = await createMatch(queue);
       queue.matchId = matchId;
-      await db2.updateQueue(queue);
+      await db.updateQueue(queue);
       res.status(200).json({ message: "Match Ready", matchId: matchId });
     }
     await db2.updateQueue(queue);
@@ -271,8 +271,8 @@ const createMatch = async (queue) => {
       "SELECT in_use, user_id, public_server FROM game_server WHERE in_use = ?";
     const serverInUse = await db2.query(serverSql, [0]);
     let teamNameSql = "SELECT name FROM team WHERE id = ?";
-    let teamOneName = await db2.query(teamNameSql, [req.body[0].team1_id]);
-    let teamTwoName = await db2.query(teamNameSql, [req.body[0].team2_id]);
+    let teamOneName = await db2.query(teamNameSql, [queue.team1id]);
+    let teamTwoName = await db2.query(teamNameSql, [queue.team2id]);
     let apiKey = generate({
       length: 24,
       capitalization: "uppercase"
