@@ -213,7 +213,7 @@ router.post("/ban", Utils.ensureAuthenticated, async (req, res, next) => {
       await db.updateQueue(queue);
       res.status(200).json({ message: "Match Ready", matchId: matchId });
     }
-    await db2.updateQueue(queue);
+    await db.updateQueue(queue);
     res.status(200).json({ message: "Map banned", matchId: null });
   } catch (err) {
     console.error(err);
