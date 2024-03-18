@@ -182,14 +182,13 @@ router.post("/pick", Utils.ensureAuthenticated, async (req, res, next) => {
           queue.turn = 'team2';
         } else if (queue.team1.length === 4 && queue.team2.length === 4) {
           queue.turn = 'map_pick_team1';
-          const team1ID = createTeam(team1, queue.team1Captain);
-          const team2ID = createTeam(team2, queue.team2Captain);
+          const team1ID = await createTeam(team1, queue.team1Captain);
+          const team2ID = await createTeam(team2, queue.team2Captain);
           queue.team1id = team1ID;
           queue.team2id = team2ID;
           queue.maps = ['de_inferno', 'de_mirage', 'de_nuke', 'de_overpass', 'de_vertigo', 'de_anubis', 'de_ancient'];
         }
         await db.updateQueue(queue);
-        child.send({ action: 'PICK', team1: team1, team2: team2 });
         res.status(200).json({ message: "Team picked" });
     } catch (err) {
         console.error(err);
@@ -295,7 +294,7 @@ const createMatch = async (queue) => {
       veto_first: 'team1',
       veto_mappool: queue.maps[0],
       side_type: 'always_knife',
-      plugin_version: req.body[0].plugin_version,
+      plugin_version: null,
       private_match: 0,
       enforce_teams: 1,
       api_key: apiKey,

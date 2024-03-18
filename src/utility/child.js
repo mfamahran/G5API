@@ -1,7 +1,5 @@
 // queueManager.js
 let playerQueue = [];
-let team1 = [];
-let team2 = [];
 
 
 const startMatchIfPossible = (message) => {
@@ -37,16 +35,7 @@ process.on('message', (message) => {
   } else if (message.action === 'LEAVE_QUEUE') {
     playerQueue = playerQueue.filter(player => player.steam_id !== message.player.steam_id);
     console.log(`Player ${message.player.name} left the queue. Queue size: ${playerQueue.length}`);
-  } else if (message.action === 'PICK') {
-    team1 = message.team1;
-    team2 = message.team2;
-
-    if (team1.length === 4 && team2.length === 4) {
-      process.send({ action: 'TEAMS_PICKED', team1: team1, team2: team2 });
-    }
   } else if (message.action === 'RESET_QUEUE') {
     playerQueue = [];
-    team1 = [];
-    team2 = [];
   }
 });
