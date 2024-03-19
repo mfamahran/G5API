@@ -267,7 +267,7 @@ const createTeam = async (team, captain) => {
 
 const createMatch = async (queue) => {
   let serverSql =
-      "SELECT in_use, user_id, public_server FROM game_server WHERE in_use = ?";
+      "SELECT ip_string, port, rcon_password, in_use, user_id, public_server FROM game_server WHERE in_use = ?";
     const serverInUse = await db2.query(serverSql, [0]);
     let teamNameSql = "SELECT name FROM team WHERE id = ?";
     let teamOneName = await db2.query(teamNameSql, [queue.team1id]);
