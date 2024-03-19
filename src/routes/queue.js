@@ -164,8 +164,8 @@ router.post("/pick", Utils.ensureAuthenticated, async (req, res, next) => {
         let queue = req.body;
         queue.team1 = queue.team1.players;
         queue.team2 = queue.team2.players;
-        let team1 = req.body.team1.players;
-        let team2 = req.body.team2.players;
+        // let team1 = req.body.team1.players;
+        // let team2 = req.body.team2.players;
         if (queue.team1.length === 1 && queue.team2.length === 0) {
           queue.turn = 'team2';
         } else if (queue.team1.length === 1 && queue.team2.length === 1) {
@@ -182,8 +182,8 @@ router.post("/pick", Utils.ensureAuthenticated, async (req, res, next) => {
           queue.turn = 'team2';
         } else if (queue.team1.length === 4 && queue.team2.length === 4) {
           queue.turn = 'map_pick_team1';
-          const team1ID = await createTeam(team1, queue.team1Captain);
-          const team2ID = await createTeam(team2, queue.team2Captain);
+          const team1ID = await createTeam(queue.team1, queue.team1Captain);
+          const team2ID = await createTeam(queue.team2, queue.team2Captain);
           queue.team1id = team1ID;
           queue.team2id = team2ID;
           queue.maps = ['de_inferno', 'de_mirage', 'de_nuke', 'de_overpass', 'de_vertigo', 'de_anubis', 'de_ancient'];
