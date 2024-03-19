@@ -324,7 +324,7 @@ const createMatch = async (queue) => {
       (await newServer.isGet5Available())
     ) {
       sql = "UPDATE game_server SET in_use = 1 WHERE id = ?";
-      await db2.query(sql, [req.body[0].server_id]);
+      await db2.query(sql, [serverInUse[0].id]);
 
       sql = "UPDATE `match` SET plugin_version = ? WHERE id = ?";
       let get5Version = await newServer.getGet5Version();
