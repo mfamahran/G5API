@@ -6,6 +6,7 @@ import { ref as dataRef, push, onValue, set } from "firebase/database";
 import Utils from "../utility/utils.js";
 import {fork} from 'child_process';
 import { generate } from "randomstring";
+import config from "config";
 
 const router = Router();
 const child = fork('./src/utility/child.js');
