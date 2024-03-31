@@ -1,5 +1,5 @@
 import { initializeApp, FirebaseOptions } from "firebase/app";
-import { getDatabase, ref as dataRef, push, onValue, set } from "firebase/database";
+import { getDatabase, ref as dataRef, push, onValue, set, get, remove } from "firebase/database";
 import config from 'config';
 
 const firebaseConfig = {
@@ -21,7 +21,7 @@ class Database {
             onValue(
                 queueRef,
                 snapshot => {
-                  let queue: Queue = snapshot.val() || { players: [], matchFound: false, team1: [], team2: [] };;
+                  let queue: Queue = snapshot.val() || { players: [], matchFound: false, team1: [], team2: [] };
                   let inQueue = false;
                   console.log(player.steam_id);
                   Object.values(queue.players).forEach(queuedPlayer => {
@@ -31,8 +31,8 @@ class Database {
                   });
                   if (!inQueue) {
                     // Player not in queue, add them
-                    if (queue.players === undefined) {
-                      queue.players = [];
+                    if (queue?.players === undefined) {
+                      queue.players = new Array<User>();
                     }
                     queue.players.push(player);
                     set(queueRef, queue);
@@ -63,7 +63,11 @@ class Database {
                     queuedPlayer => queuedPlayer.steam_id !== player.steam_id
                   );
                   // Update the queue in Firebase
-                  set(queueRef, queue);
+                  if (queue.players.length === 0) {
+                    remove(queueRef);
+                  } else {
+                    set(queueRef, queue);
+                  }
                 },
                 {
                   onlyOnce: true // Ensure this is only run once and not left on as a listener
@@ -90,6 +94,13 @@ class Database {
               onlyOnce: false
             }
         );
+    }
+
+    // function to get the queue
+    async getQueue(): Promise<Queue> {
+        const queueRef = dataRef(fdb, "queue");
+        const snapshot = await get(queueRef);
+        return snapshot.val();
     }
 }
 
