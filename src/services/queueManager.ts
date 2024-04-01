@@ -17,7 +17,7 @@ let Queue: Queue = {
 
 
 const startMatchIfPossible = () => {
-  if (Queue?.players?.length >= 10) {
+  if (Queue.players.length >= 10) {
     // Simulate match creation logic
     console.log("MATCH FOUND");
     const playersForMatch = Queue.players.slice(0, 10);
@@ -112,6 +112,9 @@ class QueueManager {
 
   async pickPlayer(captain: User, player: User) {
     if (captain.steam_id === Queue.team1Captain?.steam_id) {
+      if (Queue.team1 === undefined) {
+        Queue.team1 = [];
+      }
       Queue.team1.push(player);
       if (Queue.team1.length === 1 || Queue.team1.length === 3) {
         Queue.turn = 'team2';
@@ -130,6 +133,9 @@ class QueueManager {
       }
       Queue.turn = 'team2';
     } else if (captain.steam_id === Queue.team2Captain?.steam_id) {
+      if (Queue.team2 === undefined) {
+        Queue.team1 = [];
+      }
       Queue.team2.push(player);
       if (Queue.team2.length === 2 || Queue.team2.length === 4) {
         Queue.turn = 'team1';
