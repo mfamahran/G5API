@@ -134,7 +134,7 @@ class QueueManager {
       Queue.turn = 'team2';
     } else if (captain.steam_id === Queue.team2Captain?.steam_id) {
       if (Queue.team2 === undefined) {
-        Queue.team1 = [];
+        Queue.team2 = [];
       }
       Queue.team2.push(player);
       if (Queue.team2.length === 2 || Queue.team2.length === 4) {
